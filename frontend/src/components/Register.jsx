@@ -6,6 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 function Register() {
 	const [email, setEmail] = useState("");
+	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const navigate = useNavigate();
 
@@ -14,6 +15,7 @@ function Register() {
 		try {
 			await axios.post("http://localhost:3001/register", {
 				email,
+				username,
 				password,
 			});
 			navigate("/login");
@@ -33,6 +35,14 @@ function Register() {
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
 					placeholder="Email"
+					className="mb-4 p-2 border rounded w-full"
+					required
+				/>
+				<input
+					type="text"
+					value={username}
+					onChange={(e) => setUsername(e.target.value)}
+					placeholder="Username"
 					className="mb-4 p-2 border rounded w-full"
 					required
 				/>

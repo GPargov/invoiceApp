@@ -2,8 +2,6 @@
 
 const express = require("express");
 const mongoose = require("mongoose");
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const passport = require("passport");
 const session = require("express-session");
@@ -23,8 +21,6 @@ const port = process.env.PORT || 3001;
 // Hard-coded configuration values
 const MONGO_URI = "mongodb://localhost:27017/invoice-app";
 const SESSION_SECRET = "secret";
-const EMAIL = "your_email@gmail.com";
-const EMAIL_PASSWORD = "your_email_password";
 
 // Middleware
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
@@ -66,9 +62,12 @@ const upload = multer({ storage });
 
 // Register a new user
 app.post("/register", async (req, res) => {
-	const { email, password } = req.body;
+	const { email, username, password, isAdmin } = req.body;
+	if (!email || !username || !password) {
+		return res.status(400).send("All fields are required");
+	}
 	const hashedPassword = await bcrypt.hash(password, 10);
-	const user = new User({ email, password: hashedPassword });
+	const user = new User({ email, username, password: hashedPassword, isAdmin });
 	await user.save();
 	res.status(201).send("User registered");
 });
@@ -80,7 +79,10 @@ app.post("/login", (req, res, next) => {
 		if (!user) return res.status(401).json({ message: "Invalid credentials" });
 		req.logIn(user, (err) => {
 			if (err) return next(err);
-			return res.json({ message: "Logged in successfully", user });
+			return res.json({
+				message: "Logged in successfully",
+				user: { email: user.email, isAdmin: user.isAdmin },
+			});
 		});
 	})(req, res, next);
 });
@@ -88,7 +90,10 @@ app.post("/login", (req, res, next) => {
 // Check if user is authenticated
 app.get("/auth-check", (req, res) => {
 	if (req.isAuthenticated()) {
-		return res.json({ authenticated: true, user: req.user });
+		return res.json({
+			authenticated: true,
+			user: { email: req.user.email, isAdmin: req.user.isAdmin },
+		});
 	}
 	res.json({ authenticated: false });
 });
@@ -135,6 +140,31 @@ function isAuthenticated(req, res, next) {
 	}
 	res.status(401).json({ message: "Unauthorized" });
 }
+
+// Middleware to check if user is admin
+function checkAdmin(req, res, next) {
+	if (req.isAuthenticated() && req.user.isAdmin) {
+		return next();
+	}
+	res.status(403).json({ message: "Forbidden" });
+}
+
+// Fetch all users and their invoices (Admin only)
+app.get("/admin/users", isAuthenticated, checkAdmin, async (req, res) => {
+	try {
+		const users = await User.find().select("-password");
+		const usersWithInvoices = await Promise.all(
+			users.map(async (user) => {
+				const invoices = await Invoice.find({ userId: user._id });
+				return { ...user.toObject(), invoices };
+			})
+		);
+		res.json(usersWithInvoices);
+	} catch (error) {
+		console.error("Failed to fetch users and invoices", error);
+		res.status(500).json({ message: "Internal server error" });
+	}
+});
 
 // Generate PDF with all invoices
 app.get("/export-pdf", isAuthenticated, async (req, res) => {

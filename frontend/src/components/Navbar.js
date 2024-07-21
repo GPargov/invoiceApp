@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
 
 const Navbar = () => {
-	const { isAuthenticated, logout } = useContext(AuthContext);
+	const { isAuthenticated, logout, user } = useContext(AuthContext);
 	const navigate = useNavigate();
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -25,6 +25,13 @@ const Navbar = () => {
 					<Link to="/">InvoiceApp</Link>
 				</div>
 				<div className="hidden lg:flex flex-grow justify-center space-x-4">
+					{user?.isAdmin ? (
+						<Link
+							to="admin"
+							className="text-white px-3 py-2 rounded-md hover:bg-blue-700 hover:text-white transition-all duration-300">
+							All Invoices
+						</Link>
+					) : null}
 					{isAuthenticated ? (
 						<Link
 							to="/"
